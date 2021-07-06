@@ -23,6 +23,8 @@ loading <- c("SuperLearner", "ipred", "adabag", "randomForest", "e1071", "nnet",
              "caret", "class", "cowplot", "ggmap", "forecast", "partykit", "party", "flexdashboard")
 lapply(loading, require, character.only = TRUE)
 setwd("D:\\1 Masters\\Dataset\\trainingandtestdata")
+
+# Scrape and analyst data from Google trends
 vaccine_line <- gtrends(c("vaccine", "vaccination", "swine", "covid-19"), geo = "US", time = "all")
 plot.gtrends.silent <- function(x, ...) {df <- x$interest_over_time
 df$date <- as.Date(df$date) 
@@ -1203,7 +1205,7 @@ Accuracy  <- c(72.7, 54.67, 64.55, 68.22, 68.59, 64.01, 62.59, 76.12, 59.47, 71.
 Sensitivity <- c(17.8, 58.97, 40.86, 38.34, 26.24, 43.06, 46.62, 30.01, 55.29, 19.62)
 Specificity <- c(87.09, 53.53, 70.78, 76.04, 79.68, 69.5, 66.77, 80, 60.56, 85.3)
 models <- c('Random Forest', 'Bagging', 'Boosting', 'C-Forest', 'KNN', 'Neural Network', 
-            'SVM', 'Superlearner', 'Naïve Bayes', 'C5.0')
+            'SVM', 'Superlearner', 'NaÃ¯ve Bayes', 'C5.0')
 combined <- cbind(Accuracy, Sensitivity, Specificity)
 combined <- as.data.frame(combined)
 combined <- cbind(combined, models)
