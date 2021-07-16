@@ -2,27 +2,6 @@
 setwd("D:\\AD")
 write.csv(test, file= "test_data.csv")
 write.csv(trains,"training_data.csv")
-# Variable Importance
-# Random Forest
-set.seed(232) 
-imp_rf <- randomForest(Vaccination_Status ~ ., data=trains,  importance=TRUE) 
-var_imp <- varImpPlot(imp_rf)
-var_imp <- as.data.frame(var_imp)
-var_imp$varnames <- rownames(var_imp)
-rownames(var_imp) <- NULL  
-
-ggplot(var_imp, aes(x=reorder(varnames, MeanDecreaseAccuracy),
-                    weight=MeanDecreaseAccuracy, fill=varnames)) + 
-  geom_bar() + scale_fill_discrete(name="Variable Group") +
-  ylab("Importance") + xlab("Variable") +
-  coord_flip() + theme(legend.position = "none") + 
-  ggtitle("Random Forest Variable Importance") +
-  theme(plot.title = element_text(hjust = 0.5))
-
-# Boruta Algorithm
-set.seed(432)
-var_imp_boruta <- Boruta(Vaccination_Status~., data = trains, doTrace = 2)
-print(var_imp_boruta)
 
 # 1. Random Forest
 trained <- sample_n(trains, 10000)
