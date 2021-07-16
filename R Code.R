@@ -3,38 +3,6 @@ setwd("D:\\AD")
 write.csv(test, file= "test_data.csv")
 write.csv(trains,"training_data.csv")
 
-# 3. KNN
-# Make the factor levels suitable for models such as knn. This keeps the variables as factors but changes
-# the factor level names to simple numerical values that for models
-
-selected <-c("Was_Child_Breastfed", "Household_Size", "Child_Number", "Firstborn", 
-             "Insurance_Type", "Education_Status", "Was_Child_Breastfed", 
-             "Race", "Mother_Age_Group", "Marital_Status", "House_Ownership_Status", 
-             "Provider_Facility", "Number_Providers", "WIC", "Region")
-for (i in selected){trains[,i] <- as.numeric(trains[,i])}
-for (i in selected){trains[,i] <- as.factor(trains[,i])}
-for (i in selected){test[,i] <- as.numeric(test[,i])}
-for (i in selected){test[,i] <- as.factor(test[,i])}
-# From https://rpubs.com/njvijay/16251
-trains <- na.omit(trains)
-test <- na.omit(test)
-trained <- sample_n(trains, 10000)
-set.seed(232)
-knn.cross <- tune.knn(x = trained[,-14], y = trained[,14], k = 1:25, 
-                      tunecontrol = tune.control(sampling = "cross"), cross=10) 
-plot(knn.cross, main = "Optimal Value for K in KNN") 
-
-# Train knn model with default and tuned values for k 
-set.seed(324)
-knn_untuned <- kNN(Vaccination_Status ~ .,trains, test, norm=FALSE) 
-set.seed(232)
-knn_tuned <- kNN(Vaccination_Status ~ .,trains, test, norm=FALSE, k = 1) 
-
-confusionMatrix(knn_untuned,
-                test$Vaccination_Status)
-confusionMatrix(knn_tuned,
-                test$Vaccination_Status)
-
 # 4. Support Vector Machines 
 # Comparing different svm kernels 
 set.seed(1234)
