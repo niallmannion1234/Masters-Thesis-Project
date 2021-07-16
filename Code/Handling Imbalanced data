@@ -48,3 +48,6 @@ over_cm
 compare_samples <- rbind(over_cm$overall, synth_cm$overall, both_cm$overall, under_cm$overall)
 compare_samples <- as.data.frame(compare_samples)
 compare_samples$Method <- c('Oversampled', 'Synthetic Data', 'Under/Oversampled', 'Undersampled')
+
+# use oversampling as training data
+trains <- over_trains
