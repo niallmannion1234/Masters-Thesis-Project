@@ -1108,6 +1108,26 @@ nnetFit <- caret::train(Vaccination_Status ~ .,
 nnetFit
 plot(nnetFit, main = "Neural Network Accuracy By Weight Decay") 
 
+library(keras)
+library(mlbench)
+library(dplyr)
+library(magrittr)
+library(neuralnet)
+train_nn <- trains
+train_nn %<>% mutate_if(is.factor, as.numeric)
+set.seed(4343)
+nn <- neuralnet(Vaccination_Status ~.,
+      data=train_nn,
+      hidden = c(12,7),
+      linear.output = F,
+      lifesign = 'full',
+      rep=1)
+plot(nn,col.hidden = 'darkgreen',     
+      col.hidden.synapse = 'darkgreen',
+      show.weights = F,
+      information = F,
+      fill = 'lightblue')
+                                                   
 set.seed(232)
 untuned_nnet <- nnet(Vaccination_Status ~., data=trains, size = 10)  
 untuned_nnet_pred <- predict(untuned_nnet, test) 
