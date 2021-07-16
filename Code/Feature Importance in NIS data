@@ -1,0 +1,10 @@
+# Feature importance
+Project_Theme = theme(
+  axis.title.x = element_text(size = 19),
+  axis.text.x = element_text(size = 19),
+  axis.title.y = element_text(size = 20),
+  plot.title = element_text(hjust = 0.5, size = 20, face = 'bold'))
+imb <- ggplot(compare_samples, aes(x= reorder(Method, -Accuracy), weight=Accuracy, fill = Method))
+imb <- imb + geom_bar() + ggtitle("Comparison of Accuracy of Sampling Methods") + Project_Theme
+imb <- imb + xlab("Sampling Method") + ylab("Accuracy") 
+imb + scale_fill_discrete(name = "Sampling Method")
