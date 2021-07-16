@@ -1,0 +1,584 @@
+---
+title: "Immunization Dashboard"
+author: "Niall Mannion"
+date: "`r format(Sys.time(), '%d %b %Y')`"
+output:
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    social: menu
+    source_code: embed
+runtime: shiny
+resource_files:
+- timeseries.csv
+---
+
+```{r global, include=FALSE}
+# Tang, D. (2018) 'Visualising Google Trends results with R'. Computational biology and genomics Blog. Available
+#  https://davetang.org/muse/2018/12/31/visualising-google-trends-results-with-r/``{r global, include=FALSE}
+
+install.packages("textdata", repos="http://cran.r-project.org")
+install.packages("gtrendsR", repos="http://cran.r-project.org")
+install.packages("ggplot2", repos="http://cran.r-project.org")
+install.packages("plotly", repos="http://cran.r-project.org")
+install.packages("maps", repos="http://cran.r-project.org")
+install.packages("tidytext", repos="http://cran.r-project.org")
+install.packages("flexdashboard", repos="http://cran.r-project.org")
+library(flexdashboard)
+library(textdata)
+library(gtrendsR) 
+library(ggplot2) 
+library(plotly)
+library(maps)
+library(tidytext)
+vaccine_line <- gtrends(c("vaccine", "vaccination", "swine", "covid-19"), geo = "US", time = "all")
+plot.gtrends.silent <- function(x, ...) {df <- x$interest_over_time 
+  df$date <- as.Date(df$date) 
+  df$hits <- if(typeof(df$hits) == 'character'){ 
+  as.numeric(gsub('<','',df$hits)) } else { df$hits} 
+
+df$legend <- paste(df$keyword, " (", df$geo, ")", sep = "") 
+  p <- ggplot(df, aes_string(x = "date", y = "hits", color = "legend")) + 
+    geom_line() + 
+    xlab("Date") + 
+    ylab("Search hits") + 
+    ggtitle("") + 
+    theme_bw() + 
+    theme(legend.title = element_blank()) 
+  invisible(p)} 
+
+my_plot <- plot.gtrends.silent(vaccine_line) 
+gt <- my_plot + 
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") + 
+  theme(legend.position = "none") 
+
+my_theme <- function() {theme_bw() + theme(panel.background  = element_blank(),
+plot.background = element_rect(fill = "seashell"),
+panel.border = element_blank(), strip.background  = element_blank(),
+plot.margin = unit(c(.5, .5, .5, .5), "cm"),
+panel.spacing = unit(3, "lines"), panel.grid.major  = element_blank(),
+panel.grid.minor = element_blank(), legend.background = element_blank(),
+legend.key = element_blank(), legend.title = element_blank())}
+my_theme2 <- function() {my_theme() + theme(axis.title = element_blank(),
+axis.text = element_blank(), axis.ticks = element_blank())}
+vaccine_gtrends <- gtrends(c("vaccine"), time = "today 12-m", geo = "US") 
+vaccine_gtrends <- vaccine_gtrends$interest_by_region
+statesMap      <- map_data("state")
+vaccine_gtrends$region <- sapply(vaccine_gtrends$location,tolower)
+final_gtrends  <- merge(statesMap, vaccine_gtrends,by="region")
+regionLabels   <- aggregate(cbind(long, lat) ~ region, data = final_gtrends, 
+                  FUN=function(x) mean(range(x)))
+g <- final_gtrends %>% ggplot() + geom_polygon(aes(x=long,y=lat,group=group,fill = hits, label = region), colour="white") + scale_fill_continuous(low="ivory",high="midnightblue") +
+guides(fill = "colorbar") + my_theme2() + coord_fixed(1.3)
+
+install.packages("dplyr", repos="http://cran.r-project.org")
+install.packages("tidyr", repos="http://cran.r-project.org")
+install.packages("ggplot2", repos="http://cran.r-project.org")
+install.packages("ggrepel", repos="http://cran.r-project.org")
+install.packages("gridExtra", repos="http://cran.r-project.org")
+install.packages("knitr", repos="http://cran.r-project.org")
+install.packages("radarchart", repos="http://cran.r-project.org")
+install.packages("wordcloud2", repos="http://cran.r-project.org")
+install.packages("twitteR", repos="http://cran.r-project.org")
+install.packages("rtweet", repos="http://cran.r-project.org")
+library(dplyr)
+library(tidyr)
+library(ggplot2) 
+library(ggrepel)
+library(gridExtra) 
+library(knitr) 
+library(radarchart) 
+library(wordcloud2)
+library(twitteR)
+library(rtweet)
+
+Ninth <- read.csv("09th Mar Texas.csv", header=T, na.strings = c(""), stringsAsFactors = T)
+Sixteenth <- read.csv("16th Mar Texas.csv", header=T, na.strings = c(""), stringsAsFactors = T)
+TwentyThird <- read.csv("23th Mar Texas.csv", header=T, na.strings = c(""), stringsAsFactors = T)
+Thirtieth <- read.csv("30th Mar Texas.csv", header=T, na.strings = c(""), stringsAsFactors = T)
+
+march_tweets <- rbind(Ninth, Sixteenth, TwentyThird, Thirtieth)
+march_tweets <- march_tweets[!duplicated(march_tweets$text),]
+comb <- march_tweets[ ,c(3, 13, 14, 17, 32, 91, 5)]
+Texas_Tweets <- comb
+texasdf <- Texas_Tweets %>% dplyr::select(Date = created_at, Text = text, Number_of_Retweets = retweet_count,
+                              Language = lang, Location = place)
+selected <- c("Date", "Text", "Location")
+texasdf[selected] <- lapply(texasdf[selected], as.character)
+
+# function to remove special characters
+removeSpecialChars <- function(x) gsub("[^a-zA-Z0-9 ]", " ", x)
+# remove special characters
+texasdf$Text <- sapply(texasdf$Text, removeSpecialChars)
+
+# convert everything to lower case
+texasdf$Text <- sapply(texasdf$Text, tolower)
+
+#define some colors to use throughout
+my_colors <- c("#E69F00", "#56B4E9", "#009E73", "#CC79A7", "#D55E00")
+
+theme_lyrics <- function() 
+{theme(plot.title = element_text(hjust = 0.5),
+       axis.text.x = element_blank(), 
+       axis.ticks = element_blank(),
+       panel.grid.major = element_blank(),
+       panel.grid.minor = element_blank(),
+       legend.position = "none")}
+
+final_tweets_filtered <- texasdf %>%
+  unnest_tokens(word, Text) %>%
+  anti_join(stop_words) %>%
+  distinct() %>%
+  dplyr::filter(nchar(word) > 3)
+undesirable_words <- c("https", "vaccine", "time", "vaccine",
+                       "news", "vaccinated", "vaccines",
+                       "vaccination", "doesn", "months", "anti",
+                       "stop", "ready", "world", "people")
+
+final_tweet_filtered <- texasdf %>%
+  unnest_tokens(word, Text) %>%
+  anti_join(stop_words) %>%
+  dplyr::distinct() %>%
+  dplyr::filter(!word %in% undesirable_words) %>%
+  dplyr::filter(nchar(word) > 3)
+
+p <- final_tweet_filtered %>%
+  dplyr::count(word, sort = TRUE) %>%
+  top_n(15) %>%
+  ungroup() %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot() +
+  geom_col(aes(word, n), fill = my_colors[4]) +
+  theme(legend.position = "none", 
+        plot.title = element_text(hjust = 0.5),
+        panel.grid.major = element_blank()) +
+  xlab("Word") + 
+  ylab("Word Count") +
+  ggtitle("") +
+  coord_flip()
+q <- p + theme(axis.text=element_text(size=10),
+          axis.title=element_text(size=10))
+me <- q 
+
+install.packages("ggrepel", repos="http://cran.r-project.org")
+install.packages("syuzhet", repos="http://cran.r-project.org")
+library(ggrepel)
+library(syuzhet)
+texas_nrc <- final_tweet_filtered %>%
+  inner_join(get_sentiments("nrc"))
+
+syuzhet_vector <- get_sentiment(final_tweet_filtered$word, method="nrc")
+nrc_plot <- texas_nrc %>%
+  group_by(sentiment) %>%
+  dplyr::summarise(word_count = n()) %>%
+  ungroup() %>%
+  mutate(sentiment = reorder(sentiment, word_count)) %>%
+  ggplot(aes(sentiment, word_count, fill = -word_count)) +
+  geom_col() +
+  guides(fill = FALSE) + 
+  theme_lyrics() +
+  labs(x = "Emotion", y = "Word Count") +
+  scale_y_continuous(limits = c(0, 25000)) +
+  coord_flip()
+nrc_plot <- nrc_plot + theme(axis.text=element_text(size=10),
+               axis.title=element_text(size=10))
+d <- nrc_plot + theme(plot.title = element_text(size=10, face="bold"))
+
+install.packages("plyr", repos="http://cran.r-project.org")
+install.packages("ggplot2", repos="http://cran.r-project.org")
+library(ggplot2)
+library(plyr)
+imbalanceddata <- read.csv("NIS_dataset.csv", header=T, na.strings = c(""), stringsAsFactors = T)
+imbalanceddata$Duration <- as.numeric(imbalanceddata$Duration) 
+imbalanceddata<-na.omit(imbalanceddata) 
+imbalanceddata <- imbalanceddata[ ,c(3:19)]
+
+imbalanceddata <- imbalanceddata[!grepl("REFUSED|NEVER HEARD OF WIC|DON'T KNOW", imbalanceddata$WIC),]
+imbalanceddata <- imbalanceddata[!grepl("OTHER ARRANGMENT|REFUSED|DON'T KNOW", 
+imbalanceddata$House_Ownership_Status),]
+imbalanceddata <- imbalanceddata[!grepl("DON'T KNOW|REFUSED", imbalanceddata$Was_Child_Breastfed),]
+imbalanceddata <- imbalanceddata[!grepl("NA|TYPE OF PROVIDER UNKNOWN|REFUSED",
+imbalanceddata$Provider_Facility),]
+
+imbalanceddata$Was_Child_Breastfed <- factor(imbalanceddata$Was_Child_Breastfed) 
+imbalanceddata$Child_Number <- factor(imbalanceddata$Child_Number) 
+imbalanceddata$WIC <- factor(imbalanceddata$WIC) 
+imbalanceddata$Education_Status <- factor(imbalanceddata$Education_Status) 
+imbalanceddata$Mother_Age_Group <- factor(imbalanceddata$Mother_Age_Group) 
+imbalanceddata$Marital_Status <- factor(imbalanceddata$Marital_Status) 
+imbalanceddata$House_Ownership_Status <- factor(imbalanceddata$House_Ownership_Status) 
+imbalanceddata$Race <- factor(imbalanceddata$Race) 
+imbalanceddata$Provider_Facility <- factor(imbalanceddata$Provider_Facility) 
+imbalanceddata$Insurance_Type <- factor(imbalanceddata$Insurance_Type) 
+imbalanceddata$Number_Providers <- factor(imbalanceddata$Number_Providers) 
+
+my_theme <- theme( 
+  axis.title.x = element_text(size = 12), 
+  axis.text.x = element_text(size = 12), 
+  axis.title.y = element_text(size = 12), 
+  axis.text.y = element_text(size = 12), 
+  plot.title = element_text(size = 12, hjust = 0.5)) 
+LT = dim(imbalanceddata)[1]
+
+install.packages("Hmisc", repos="http://cran.r-project.org")
+library(Hmisc)
+
+imbalanceddata$Income_Level <- cut(imbalanceddata$Income_Group, 3,  
+include.lowest=TRUE, labels=c("Low", "Medium", "High"))
+imbalanceddata$Insurance_Type <- revalue(imbalanceddata$Insurance_Type, c("ANY MEDICAID"="Medicaid", "OTHER INSURANCE"="Other", "PRIVATE INSURANCE ONLY" = "Private", "UNINSURED"="Uninsured", "OTHER INSURANCE (CHIP, IHS, MILITARY, OR OTHER, ALONE OR IN COMB. WITH PRIVATE INSURANCE)"="Public")) 
+imbalanceddata$Insurance_Type <- factor(imbalanceddata$Insurance_Type, levels=c("Private", "Public", "Medicaid", "Other", "Uninsured"))
+imbalanceddata$Race <- revalue(imbalanceddata$Race, c("HISPANIC" = "Hispanic", "NON-HISPANIC OTHER + MULTIPLE RACE" = "Mixed", "NON-HISPANIC BLACK ONLY" = "Black", "NON-HISPANIC WHITE ONLY" = "White"))  
+imbalanceddata$Race <- factor(imbalanceddata$Race, 
+levels=c("Hispanic", "White", "Mixed", "Black"))
+imbalanceddata$Race <- revalue(imbalanceddata$Race, c("HISPANIC" = "Hispanic", "NON-HISPANIC OTHER + MULTIPLE RACE" = "Mixed", "NON-HISPANIC BLACK ONLY" = "Black", "NON-HISPANIC WHITE ONLY" = "White"))  
+imbalanceddata$Child_Number <- factor(imbalanceddata$Child_Number, 
+levels=c("ONE", "TWO OR THREE", "FOUR OR MORE"))  
+imbalanceddata$Child_Number <- revalue(imbalanceddata$Child_Number,   
+c("ONE"= "1", "TWO OR THREE" = "2 or 3", "FOUR OR MORE" = ">=4")) 
+
+plot16 <-ggplot(data = imbalanceddata[1:LT,], aes(x = Income_Level,fill = Vaccination_Status)) +  
+  geom_bar(position="fill") + ylab("count") + theme(legend.position="left") +
+  theme(legend.title = element_text(color = "black", size = 12),
+  legend.text = element_text(color = "blue", size = 10)) +
+  scale_fill_discrete(name = "Vaccination Status", labels = c("Unvaccinated", "Vaccinated"))
+plot10 <-ggplot(data = imbalanceddata[1:LT,], aes(x = Insurance_Type,fill = Vaccination_Status)) +  
+  geom_bar(position="fill") + ylab("Count") + theme(legend.title = element_text(color = "black", size = 12),
+  legend.text = element_text(color = "blue", size = 10)) +
+  scale_fill_discrete(name = "Vaccination Status", labels = c("Unvaccinated", "Vaccinated"))
+plot15 <-ggplot(data = imbalanceddata[1:LT,], aes(x = Race, fill = Vaccination_Status)) +  
+  geom_bar(position="fill") + ylab("count") + theme(legend.title = element_text(color = "black", size = 12),
+  legend.text = element_text(color = "blue", size = 10)) +
+  scale_fill_discrete(name = "Vaccination Status", labels = c("Unvaccinated", "Vaccinated"))
+plot3 <-ggplot(data = imbalanceddata[1:LT,], aes(x = Child_Number,fill = Vaccination_Status)) +  
+  geom_bar(position="fill") + theme(legend.title = element_text(color = "black", size = 12),
+  legend.text = element_text(color = "blue", size = 10)) +
+  scale_fill_discrete(name = "Vaccination Status", labels = c("Unvaccinated", "Vaccinated")) 
+plot1 <-ggplot(data = imbalanceddata[1:LT,], aes(x = Household_Size,fill = Vaccination_Status)) +  
+  geom_bar(position="fill") + theme(legend.title = element_text(color = "black", size = 12),
+  legend.text = element_text(color = "blue", size = 10)) +
+  scale_fill_discrete(name = "Vaccination Status", labels = c("Unvaccinated", "Vaccinated"))
+plot5 <-ggplot(data = imbalanceddata, aes(x = Education_Status,fill = Vaccination_Status)) +  
+  geom_bar(position="fill") + theme(legend.title = element_text(color = "black", size = 12),
+  legend.text = element_text(color = "blue", size = 10)) +
+  scale_fill_discrete(name = "Vaccination Status", labels = c("Unvaccinated", "Vaccinated"))
+imbalanceddata$Provider_Facility <- revalue(imbalanceddata$Provider_Facility, 
+                                            c("ALL HOSPITAL FACILITIES" = "All", "ALL MILITARY/OTHER FACILITIES" =
+                                                "Military", "ALL PRIVATE FACILITIES" = "Private", 
+                                              "ALL PUBLIC FACILITIES" = "Public", "MIXED"="Mixed"))
+imbalanceddata$Provider_Facility <- factor(imbalanceddata$Provider_Facility, 
+                                           levels=c("Private", "Public", "Medicaid", "Other", "Uninsured"))
+plot11 <-ggplot(data = imbalanceddata[1:LT,], aes(x = Number_Providers,
+                                                  fill = Vaccination_Status)) + geom_bar(position="fill") + ylab("Frequency")
+plot12 <-ggplot(data = imbalanceddata[1:LT,], aes(x = House_Ownership_Status,
+            fill = Vaccination_Status)) + geom_bar(position="fill") + ylab("Frequency") +
+            theme(legend.position = "none")
+plot13 <-ggplot(data = imbalanceddata[1:LT,], aes(x = Provider_Facility,
+                                                  fill = Vaccination_Status)) + geom_bar(position="fill") + ylab("Frequency") +
+  theme(legend.position = "none")
+plot14 <-ggplot(data = imbalanceddata[1:LT,], aes(x = Mother_Age_Group,
+                                                  fill = Vaccination_Status)) + geom_bar(position="fill") + ylab("") 
+imbalanceddata$Marital_Status <- revalue(imbalanceddata$Marital_Status, 
+     c("MARRIED"="Married", 
+     "NEVER MARRIED/WIDOWED/DIVORCED/SEPARATED/DECEASED/LIVING WITH PARTNER" = "Not Currently Married"))
+plot8 <- ggplot(data = imbalanceddata[1:LT,], aes(x = Marital_Status,fill = Vaccination_Status)) +
+  geom_bar(position="fill") + theme(legend.position = "none")
+
+trains <- read.csv("training_data.csv", header=T, na.strings = c(""), stringsAsFactors = T)
+test <- read.csv("test_data.csv", header=T, na.strings = c(""), stringsAsFactors = T)
+levels(trains$Vaccination_Status) <- c("Vaccinated", "Unvaccinated")
+
+install.packages("dplyr", repos="http://cran.r-project.org")
+install.packages("randomForest", repos="http://cran.r-project.org")
+install.packages("SuperLearner", repos="http://cran.r-project.org")
+install.packages("ggplot2", repos="http://cran.r-project.org")
+library(randomForest) 
+library(dplyr) 
+library(ggplot2)
+library(SuperLearner)
+
+# Variable Importance
+# Random Forest
+set.seed(232) 
+imp_rf <- randomForest(Vaccination_Status ~ ., data=trains,  importance=TRUE) 
+var_imp <- varImpPlot(imp_rf)
+var_imp <- as.data.frame(var_imp)
+var_imp$varnames <- rownames(var_imp)
+rownames(var_imp) <- NULL  
+
+b <- ggplot(var_imp, aes(x=reorder(varnames, MeanDecreaseAccuracy),
+                    weight=MeanDecreaseAccuracy, fill=varnames)) + 
+  geom_bar() + scale_fill_discrete(name="Variable Group") +
+  ylab("Importance") + xlab("Variable") +
+  coord_flip() + theme(legend.position = "none") + 
+  ggtitle("Random Forest Variable Importance") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Take a sample from the test as a mock datatable. Doctors can use this to view  
+# predicted values for their real patient data that they wish to predict 
+value <- c(72.7, 17.8 , 87.09, 54.67, 58.97, 53.53, 64.55, 40.86, 70.78, 68.22, 38.37, 76.04, 68.59, 26.24, 79.68, 64.01, 43.06, 69.5, 62.59, 46.62, 66.77, 76.12, 30.01, 80, 59.47, 55.29, 60.56, 71.66, 19.62, 85.3) 
+Models <- c(rep("Random Forest" , 3) , rep("Bagging" , 3) , rep("Boosting" , 3) , rep("C-Forest" , 3), 
+            rep("KNN" , 3) , rep("Neural Network" , 3) , rep("SVM" , 3) , rep("SuperLearner" , 3), 
+            rep("Naive Bayes" , 3) , rep("C5.0" , 3)) 
+Measure <- rep(c("Accuracy" , "Sensitivity" , "Specificity") , 10) 
+data <- data.frame(Measure, Models, value) 
+data 
+f <- ggplot(data, aes(fill = Measure, y = value, x = Models)) +  
+  geom_bar(position="dodge", stat="identity") + coord_flip()
+
+y <- as.numeric(trains[,14])-1  
+ytest <- as.numeric(test[,14])-1  
+x <- trains[ ,c(1:13, 15, 16, 17)]  
+sl_model <- SuperLearner(y,  
+                        x,  
+                        SL.library=list("SL.ranger"))
+
+install.packages("DT", repos="http://cran.r-project.org")
+library(DT)
+test_datatable <- sample_n(test, 1000)
+predictions <- predict.SuperLearner(sl_model, test_datatable)  
+conv.preds <- ifelse(predictions$pred>=0.5, 1, 0)  
+conv.preds <- as.factor(conv.preds) 
+library(plyr) 
+Predicted_Vaccination_Status <- revalue(conv.preds, c("0"="Unvaccinated", "1"="Vaccinated")) 
+bound <- cbind(Predicted_Vaccination_Status, test_datatable)
+
+install.packages("reshape2", repos="http://cran.r-project.org")
+install.packages("ggplot2", repos="http://cran.r-project.org")
+install.packages("forecast", repos="http://cran.r-project.org")
+install.packages("tsoutliers", repos="http://cran.r-project.org")
+install.packages("tidyr", repos="http://cran.r-project.org")
+install.packages("plotly", repos="http://cran.r-project.org")
+install.packages("MTS", repos="http://cran.r-project.org")
+install.packages("vars", repos="http://cran.r-project.org")
+install.packages("DT", repos="http://cran.r-project.org")
+library(reshape2)
+library(ggplot2)
+library(forecast)
+library(tsoutliers)
+library(tidyr)
+library(plotly)
+library(MTS)
+library(vars)
+library(DT)
+
+headers = read.csv('datatable_timeseries.csv', skip = 1, header = F, nrows = 1, as.is = T)
+timeseries = read.csv('datatable_timeseries.csv', skip = 2, header = F)
+colnames(timeseries)= headers
+timeseries
+names(timeseries)[names(timeseries) == "variable"] <- "State"
+
+Arkansas <- c(55.1, 62.1,	74.8,	65.9,	69.5,	66.5,	68.1,	71,	76.5,	82.4,	67.8,	74.9,	75,	78,	38.5,	59.4,	70.5,	70,	60.5,	70.3,	69.7,	72.1,	72.1)
+Texas <- c(52.4,	61.8,	65.6,	63.9,	64.5,	62,	70,	67.9,	74.8,	72.5,	78.4,	76.7,	78.2,	78.6,	43.7,	62.8,	74.9,	67.7,	74.6,	67.6,	74,	73.1,	72.3)
+Oklahoma <- c(42.8,	58.9,	66,	70.9,	70.5,	68.4,	70.3,	65.3,	70.5,	72.1,	75.7,	80.4,	80.1,	73.6,	60.1,	55.3,	71,	65,	69.4,	76.7,	78.8,	70.9,	71.4)
+newsa <- cbind(Texas, Arkansas, Oklahoma)
+
+# analysing timeseries
+# new <- filter(tsdf, Names == "Texas"| Names == "Oklahoma"| Names == "Arkansas")
+mymts = ts(newsa, frequency = 1, start = c(1995, 1))
+newsat <- newsa[ ,c(1)]
+Treated = ts(newsat, frequency = 1, start = c(1995, 1))
+outliers_excess_ts <- tso(Treated, types = c("TC", "AO", "LS", "IO", "SLS"))
+outliers_excess_ts$outliers
+(outliers_idx <- outliers_excess_ts$outliers$ind)
+n <- length(Treated)
+mo_tc <- outliers("TC", outliers_idx)
+tc <- outliers.effects(mo_tc, n)
+coefhat <- as.numeric(outliers_excess_ts$outliers["coefhat"])
+tc_effect <- coefhat*tc
+Outlier_Plot <- ts(tc_effect, frequency = frequency(Treated), start = start(Treated))
+Untreated <- Treated - Outlier_Plot
+Texas <- Untreated
+
+newsat <- newsa[ ,c(2)]
+Treated = ts(newsat, frequency = 1, start = c(1995, 1))
+outliers_excess_ts <- tso(Treated, types = c("TC", "AO", "LS", "IO", "SLS"))
+outliers_excess_ts$outliers
+(outliers_idx <- outliers_excess_ts$outliers$ind)
+n <- length(Treated)
+mo_tc <- outliers("TC", outliers_idx)
+tc <- outliers.effects(mo_tc, n)
+coefhat <- as.numeric(outliers_excess_ts$outliers["coefhat"])
+tc_effect <- coefhat*tc
+Outlier_Plot <- ts(tc_effect, frequency = frequency(Treated), start = start(Treated))
+Untreated <- Treated - Outlier_Plot
+Arkansas <- Untreated
+
+newsat <- newsa[ ,c(3)]
+Treated = ts(newsat, frequency = 1, start = c(1995, 1))
+outliers_excess_ts <- tso(Treated, types = c("TC", "AO", "LS", "IO", "SLS"))
+outliers_excess_ts
+outliers_excess_ts$outliers
+(outliers_idx <- outliers_excess_ts$outliers$ind)
+n <- length(Treated)
+mo_tc <- outliers("TC", outliers_idx)
+tc <- outliers.effects(mo_tc, n)
+coefhat <- as.numeric(outliers_excess_ts$outliers["coefhat"])
+tc_effect <- coefhat*tc
+Outlier_Plot <- ts(tc_effect, frequency = frequency(Treated), start = start(Treated))
+Untreated <- Treated - Outlier_Plot
+Oklahoma <- Untreated
+adjusted_ts <- cbind(Oklahoma, Texas, Arkansas)
+
+
+stnry = diffM(adjusted_ts) 
+VARselect(stnry, type = "none", lag.max = 10)
+var.a <- vars::VAR(stnry, lag.max = 10, ic = "AIC", type = "none") 
+fcast = predict(var.a, n.ahead = 5)
+par(mar = c(2.5,2.5,2.5,2.5))
+plot(fcast)
+
+Texas_fcast = fcast$fcst[2] 
+Texas_fcast
+x = Texas_fcast$Texas[,1]
+tail(adjusted_ts)
+x = cumsum(x) + 74.1
+par(mar = c(2.5,2.5,1,2.5))
+Texas_Forecast =ts(c(adjusted_ts[,2], x), start = c(1995,1), frequency = 1)
+Texas_df <- as.data.frame(Texas_Forecast[1:28]) 
+colnames(Texas_df) <- c("x")
+
+Arkansas_fcast = fcast$fcst[3] 
+Arkansas_fcast
+y = Arkansas_fcast$Arkansas[,1]
+tail(adjusted_ts)
+y = cumsum(y) + 73.89
+par(mar = c(2.5,2.5,1,2.5))
+Arkansas_Forecast =ts(c(adjusted_ts[,3], y), start = c(1995,1), frequency = 1)
+Arkansas_df <- as.data.frame(Arkansas_Forecast[1:28]) 
+colnames(Arkansas_df) <- c("y")
+
+Oklahoma_fcast = fcast$fcst[1] 
+Oklahoma_fcast
+z = Oklahoma_fcast$Oklahoma[,1]
+tail(adjusted_ts)
+z = cumsum(z) + 71.4
+par(mar = c(2.5,2.5,1,2.5))
+Oklahoma_Forecast =ts(c(adjusted_ts[,1], z), start = c(1995,1), frequency = 1)
+Oklahoma_df <- as.data.frame(Oklahoma_Forecast[1:28]) 
+colnames(Oklahoma_df) <- c("z")
+
+combined_ts <- cbind(Texas_Forecast, Arkansas_Forecast, Oklahoma_Forecast)
+combined_ts
+combined_df <- as.data.frame(combined_ts)
+combined_df$Year <- seq(1995, 2022, by = 1)
+reshaped_ts <- melt(combined_df, id="Year")
+q <- ggplot(data = reshaped_ts, aes(x = Year, y = value, colour = variable)) + geom_line()
+q <- ggplotly(q)
+```
+
+Online Dashboard {data-icon="fa-comment-o"}
+====================
+
+Row{data-height=450}
+--------
+
+### Most Common Words In Vaccine Related Texas Tweets
+```{r, echo=FALSE}
+ggplotly(me)
+```
+
+### Most Common Emotions in Vaccine Related Texas Tweets
+```{r, echo=FALSE}
+ggplotly(d)
+```
+
+Row{data-height=500}
+--------
+
+### Google Search Hits in 'Vaccine' By State
+
+```{r, echo=FALSE}
+ggplotly(g)
+
+```
+
+### Google Search Interest in Vaccine Related Keywords Over Time (US)
+```{r, echo=FALSE}
+ggplotly(gt)
+```
+
+NIS Data Mining {data-icon="fa-database"}
+====================
+Row
+------------------------------------------------------------------------------
+### Variable Importance
+```{r, echo=FALSE}
+ggplotly(b)
+```
+
+### Model Performance
+```{r, echo=FALSE}
+ggplotly(f)
+```
+
+Row {.tabset}
+---------- 
+### Education Status
+```{r, echo=FALSE}
+ggplotly(plot5)
+```
+
+### Household Size
+```{r, echo=FALSE}
+ggplotly(plot1)
+```
+
+### Income Group
+```{r, echo=FALSE}
+ggplotly(plot16)
+```
+
+### Insurance Type
+```{r, echo=FALSE}
+ggplotly(plot10)
+```
+
+### Mother Age Group
+```{r, echo=FALSE}
+ggplotly(plot14)
+```
+
+### Race
+```{r, echo=FALSE}
+ggplotly(plot15)
+```
+
+### Number of Healthcare Providers
+```{r, echo=FALSE}
+ggplotly(plot11)
+```
+
+### Parents' Marital Status
+```{r, echo=FALSE}
+ggplotly(plot8)
+```
+
+Predicted Vaccination Status {data-icon="fa-syringe"}
+====================
+
+Row
+-------- 
+### Table of Predicted Vaccination Status 
+
+```{r, echo=FALSE} 
+datatable(bound)
+``` 
+
+
+Time Series Forecasting {data-icon="fa-clock"}
+====================
+Row
+-------- 
+
+### Table of Timeseries Data 
+```{r, echo=FALSE} 
+datatable(timeseries) 
+``` 
+
+Row
+---------- 
+
+### Timeseries Forecast Line Chart of Vaccination Rates 
+
+```{r, echo=FALSE} 
+ggplotly(q)
+```
