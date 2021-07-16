@@ -9,9 +9,6 @@ imb <- imb + geom_bar() + ggtitle("Comparison of Accuracy of Sampling Methods") 
 imb <- imb + xlab("Sampling Method") + ylab("Accuracy") 
 imb + scale_fill_discrete(name = "Sampling Method")
 
-# use oversampling as training data
-trains <- over_trains
-
 # Create training and test dataset for Rmarkdown file
 setwd("D:\\AD")
 write.csv(test, file= "test_data.csv")
